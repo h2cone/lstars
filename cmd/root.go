@@ -36,7 +36,7 @@ var (
 		Short: "Lists repositories a user has starred",
 		Run: func(cmd *cobra.Command, args []string) {
 			for {
-				stars := listStars(username, page, perPage)
+				stars := ListStars(&username, page, perPage, &sort, &direction)
 				if len(stars) == 0 {
 					os.Exit(0)
 				}
@@ -81,19 +81,20 @@ var (
 	url    = "https://api.github.com/users/{username}/starred"
 )
 
-func listStars(username string, page, perPage int) []map[string]interface{} {
-	res := make([]map[string]interface{}, perPage)
+// ListStars Lists repositories a user has starred"
+func ListStars(username *string, page, perPage int, sort, direction *string) []map[string]interface{} {
+	res := make([]map[string]interface{}, 0, perPage)
 
 	resp, err := client.R().EnableTrace().
 		SetResult(&res).
 		SetPathParams(map[string]string{
-			"username": username,
+			"username": *username,
 		}).
 		SetQueryParams(map[string]string{
 			"page":      strconv.Itoa(page),
 			"per_page":  strconv.Itoa(perPage),
-			"sort":      sort,
-			"direction": direction,
+			"sort":      *sort,
+			"direction": *direction,
 		}).
 		Get(url)
 	if err != nil || resp.StatusCode() < 200 || resp.StatusCode() >= 300 {
