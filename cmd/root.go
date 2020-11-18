@@ -49,6 +49,7 @@ var (
 
 func init() {
 	rootCmd.PersistentFlags().StringVarP(&username, "user", "u", "", "username")
+	rootCmd.MarkPersistentFlagRequired("user")
 	rootCmd.PersistentFlags().StringVarP(&language, "lang", "l", "", "language")
 	rootCmd.PersistentFlags().IntVar(&page, "num", 1, "page num")
 	rootCmd.PersistentFlags().IntVar(&perPage, "size", 30, "page size")
@@ -73,6 +74,9 @@ func printURL(stars []map[string]interface{}, filter func(map[string]interface{}
 }
 
 func filterByLanguage(star map[string]interface{}) bool {
+	if len(language) == 0 {
+		return true
+	}
 	return star != nil && ((language == "null" && star["language"] == nil) || language == star["language"])
 }
 
@@ -98,7 +102,7 @@ func ListStars(username *string, page, perPage int, sort, direction *string) []m
 		}).
 		Get(url)
 	if err != nil || resp.StatusCode() < 200 || resp.StatusCode() >= 300 {
-		fmt.Printf("err: %v, statusCode: %d\n", err, resp.StatusCode())
+		fmt.Printf("failed to list repositories, err: %v, statusCode: %d\n", err, resp.StatusCode())
 		os.Exit(1)
 	}
 	return res
