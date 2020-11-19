@@ -36,7 +36,7 @@ func TestListStars(t *testing.T) {
 	}
 }
 
-func TestMain(t *testing.T) {
+func TestNonLanguage(t *testing.T) {
 	cmd := exec.Command("/usr/local/go/bin/go", "run", "../main.go", "-u=" + username, "-l=" + language)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
