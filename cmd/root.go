@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/go-resty/resty/v2"
 	"github.com/spf13/cobra"
@@ -31,21 +32,30 @@ var (
 	sort      string
 	direction string
 
+	once bool
+
 	rootCmd = &cobra.Command{
 		Use:   "lstars",
-		Short: "Lists repositories a user has starred",
+		Short: "Lists repositories a user has starred.",
 		Run: func(cmd *cobra.Command, args []string) {
-			for {
-				stars := ListStars(&username, page, perPage, &sort, &direction)
-				if len(stars) == 0 {
-					os.Exit(0)
+			if !once {
+				for {
+					run()
+					page++
 				}
-				printURL(stars, filterByLanguage)
-				page++
 			}
+			run()
 		},
 	}
 )
+
+func run() {
+	stars := ListStars(&username, page, perPage, &sort, &direction)
+	if len(stars) == 0 {
+		os.Exit(0)
+	}
+	printURL(stars, filterByLanguage)
+}
 
 func init() {
 	rootCmd.PersistentFlags().StringVarP(&username, "user", "u", "", "username")
@@ -55,6 +65,8 @@ func init() {
 	rootCmd.PersistentFlags().IntVar(&perPage, "size", 30, "page size")
 	rootCmd.PersistentFlags().StringVar(&sort, "sort", "created", "created or updated")
 	rootCmd.PersistentFlags().StringVar(&direction, "direction", "desc", "asc or desc")
+
+	rootCmd.PersistentFlags().BoolVar(&once, "once", false, "only request once")
 }
 
 // Execute exeute root cmd
@@ -65,10 +77,22 @@ func Execute() {
 	}
 }
 
+const (
+	ghRepoURL     = "html_url"
+	ghLanguage    = "language"
+	ghNonLanguage = "null"
+
+	ghUsername  = "username"
+	ghPage      = "page"
+	ghPerPage   = "per_page"
+	ghSort      = "sort"
+	ghDirection = "direction"
+)
+
 func printURL(stars []map[string]interface{}, filter func(map[string]interface{}) bool) {
 	for _, star := range stars {
 		if filter(star) {
-			fmt.Println(star["html_url"])
+			fmt.Println(star[ghRepoURL])
 		}
 	}
 }
@@ -77,13 +101,20 @@ func filterByLanguage(star map[string]interface{}) bool {
 	if len(language) == 0 {
 		return true
 	}
-	return star != nil && ((language == "null" && star["language"] == nil) || language == star["language"])
+	if star == nil {
+		return false
+	}
+	starLanguage := star[ghLanguage]
+	if starLanguage == nil && strings.EqualFold(language, ghNonLanguage) {
+		return true
+	}
+	starLanguageStr, _ := starLanguage.(string)
+	return strings.EqualFold(language, starLanguageStr)
 }
 
-var (
-	client = resty.New()
-	url    = "https://api.github.com/users/{username}/starred"
-)
+var client = resty.New()
+
+const url = "https://api.github.com/users/{username}/starred"
 
 // ListStars Lists repositories a user has starred"
 func ListStars(username *string, page, perPage int, sort, direction *string) []map[string]interface{} {
@@ -92,13 +123,13 @@ func ListStars(username *string, page, perPage int, sort, direction *string) []m
 	resp, err := client.R().EnableTrace().
 		SetResult(&res).
 		SetPathParams(map[string]string{
-			"username": *username,
+			ghUsername: *username,
 		}).
 		SetQueryParams(map[string]string{
-			"page":      strconv.Itoa(page),
-			"per_page":  strconv.Itoa(perPage),
-			"sort":      *sort,
-			"direction": *direction,
+			ghPage:      strconv.Itoa(page),
+			ghPerPage:   strconv.Itoa(perPage),
+			ghSort:      *sort,
+			ghDirection: *direction,
 		}).
 		Get(url)
 	if err != nil || resp.StatusCode() < 200 || resp.StatusCode() >= 300 {
